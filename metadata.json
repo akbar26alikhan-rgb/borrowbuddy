@@ -1,0 +1,7 @@
+{
+  "name": "BorrowBuddy",
+  "description": "Neighborhood borrowing made easy — lend and borrow useful household items, tools, and gear with nearby neighbors.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
