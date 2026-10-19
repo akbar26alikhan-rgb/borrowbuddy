@@ -1,5 +1,8 @@
 package com.example.ui.screens
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -18,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -25,12 +29,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.BorrowItem
 import com.example.model.ItemCategory
+import com.example.model.Lender
 import com.example.ui.BorrowViewModel
 import com.example.ui.components.CategoryIcon
 import com.example.ui.components.DistanceChip
 import com.example.ui.components.TrustBadge
 import com.example.ui.components.UserAvatar
 import com.example.ui.theme.*
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,21 +44,36 @@ fun HomeScreen(
     viewModel: BorrowViewModel,
     onItemClick: (BorrowItem) -> Unit,
     onOpenAddListing: () -> Unit,
+    onOpenProviders: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val items by viewModel.filteredItems.collectAsState()
     val filterState by viewModel.filterState.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
+    val userGps by viewModel.userGpsLocation.collectAsState()
+    val isLocating by viewModel.isLocating.collectAsState()
     val isOffline by viewModel.isOffline.collectAsState()
+    val nearbyProviders by viewModel.nearbyProviders.collectAsState()
 
     var showNeighborhoodDialog by remember { mutableStateOf(false) }
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (granted) {
+            viewModel.requestGpsLocation(context)
+        }
+    }
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // --- Top Bar: Neighborhood Location & Offline Banner ---
+        // --- Top Bar: Neighborhood Location & GPS Controls ---
         Surface(
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 2.dp,
@@ -73,18 +94,28 @@ fun HomeScreen(
                             .testTag("neighborhood_selector_button")
                     ) {
                         Icon(
-                            Icons.Default.LocationCity,
+                            if (userGps?.isRealGpsFix == true) Icons.Default.MyLocation else Icons.Default.LocationCity,
                             contentDescription = null,
                             tint = PrimaryGreen,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Column {
-                            Text(
-                                text = "Neighborhood Area",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = if (userGps?.isRealGpsFix == true) "GPS Location" else "Neighborhood Area",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (userGps?.isRealGpsFix == true) {
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Surface(
+                                        color = PrimaryGreen,
+                                        shape = CircleShape,
+                                        modifier = Modifier.size(6.dp)
+                                    ) {}
+                                }
+                            }
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     text = "${userProfile.neighborhood} (≤ ${filterState.maxDistanceKm.toInt()} km)",
@@ -103,6 +134,33 @@ fun HomeScreen(
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        // GPS Quick Action Button
+                        IconButton(
+                            onClick = {
+                                locationPermissionLauncher.launch(
+                                    arrayOf(
+                                        Manifest.permission.ACCESS_FINE_LOCATION,
+                                        Manifest.permission.ACCESS_COARSE_LOCATION
+                                    )
+                                )
+                            },
+                            modifier = Modifier.testTag("gps_locate_btn")
+                        ) {
+                            if (isLocating) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = PrimaryGreen
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Default.GpsFixed,
+                                    contentDescription = "Use GPS Location",
+                                    tint = if (userGps?.isRealGpsFix == true) PrimaryGreen else MaterialTheme.colorScheme.outline
+                                )
+                            }
+                        }
+
                         IconButton(
                             onClick = { viewModel.openFilterSheet() },
                             modifier = Modifier.testTag("filter_button")
@@ -193,11 +251,60 @@ fun HomeScreen(
             }
         }
 
+        // Live GPS Banner (When active or prompt to turn on)
+        Surface(
+            color = if (userGps?.isRealGpsFix == true) PrimaryContainerGreen.copy(alpha = 0.6f) else SurfaceVariantLight.copy(alpha = 0.5f),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        Icons.Default.NearMe,
+                        contentDescription = null,
+                        tint = PrimaryGreen,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (userGps?.isRealGpsFix == true) {
+                            "GPS Active: Distances calculated from your live coordinates (±${userGps!!.accuracyMeters.toInt()}m)"
+                        } else {
+                            "Tap GPS icon to compute exact walking distances from your position"
+                        },
+                        fontSize = 11.sp,
+                        color = if (userGps?.isRealGpsFix == true) OnPrimaryContainerGreen else MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Text(
+                    text = "${nearbyProviders.size} Providers",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = PrimaryGreen,
+                    modifier = Modifier
+                        .clickable(onClick = onOpenProviders)
+                        .padding(start = 8.dp)
+                        .testTag("view_nearby_providers_btn")
+                )
+            }
+        }
+
         // --- Category Selector Carousel ---
         LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 12.dp),
+                .padding(vertical = 10.dp),
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -229,6 +336,52 @@ fun HomeScreen(
                 )
             }
         }
+
+        // --- Nearby Providers Quick Bar ---
+        Surface(
+            color = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(12.dp),
+            tonalElevation = 1.dp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+                .clickable(onClick = onOpenProviders)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Outlined.People,
+                        contentDescription = null,
+                        tint = PrimaryGreen,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Nearby Providers (${nearbyProviders.size})",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "• View neighbors lending gear",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Icon(
+                    Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = PrimaryGreen,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
 
         // --- Items Feed / Empty State ---
         if (items.isEmpty()) {
@@ -334,15 +487,37 @@ fun HomeScreen(
         val neighborhoods = listOf("Maplewood Heights", "Oak Ridge Quadrant", "Westwood Cross", "Highland Green", "Elm Park East")
         AlertDialog(
             onDismissRequest = { showNeighborhoodDialog = false },
-            title = { Text("Select Your Neighborhood", fontWeight = FontWeight.Bold) },
+            title = { Text("Select Neighborhood Location", fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "Your general area is used to find neighboring gear without ever revealing your exact address.",
+                        "You can choose a preset neighborhood or use device GPS to automatically find adjacent gear.",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Button to use GPS inside dialog
+                    Button(
+                        onClick = {
+                            showNeighborhoodDialog = false
+                            locationPermissionLauncher.launch(
+                                arrayOf(
+                                    Manifest.permission.ACCESS_FINE_LOCATION,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION
+                                )
+                            )
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.MyLocation, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Use Device GPS Fix")
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("Or select standard quadrant:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+
                     neighborhoods.forEach { n ->
                         Surface(
                             color = if (userProfile.neighborhood == n) PrimaryContainerGreen else MaterialTheme.colorScheme.surface,
@@ -401,37 +576,36 @@ fun ItemFeedCard(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(130.dp)
-                    .background(
-                        when (item.category) {
-                            ItemCategory.TOOLS -> Color(0xFFE8F2EC)
-                            ItemCategory.OUTDOOR -> Color(0xFFFBF1E6)
-                            ItemCategory.KITCHEN -> Color(0xFFF6ECEC)
-                            ItemCategory.LAWN -> Color(0xFFE8F5E9)
-                            else -> Color(0xFFECEEF6)
-                        }
-                    )
-                    .padding(12.dp)
+                    .height(160.dp)
             ) {
+                // High fidelity product artwork
+                com.example.ui.components.ProductArtwork(
+                    item = item,
+                    modifier = Modifier.fillMaxSize()
+                )
+
                 // Category icon & Distance chip
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.Top
                 ) {
                     Surface(
-                        color = Color.White.copy(alpha = 0.9f),
+                        color = Color.Black.copy(alpha = 0.65f),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            CategoryIcon(item.category, modifier = Modifier.size(14.dp))
+                            CategoryIcon(item.category, modifier = Modifier.size(13.dp))
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = item.category.displayName,
                                 fontSize = 11.sp,
+                                color = Color.White,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
@@ -440,32 +614,13 @@ fun ItemFeedCard(
                     DistanceChip(distance = item.distanceDisplay)
                 }
 
-                // Central Large Graphic Icon for the item
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    val displayIcon = when (item.category) {
-                        ItemCategory.TOOLS -> Icons.Default.Hardware
-                        ItemCategory.OUTDOOR -> Icons.Default.Cabin
-                        ItemCategory.KITCHEN -> Icons.Default.SoupKitchen
-                        ItemCategory.LAWN -> Icons.Default.Yard
-                        ItemCategory.BABY -> Icons.Default.ChildCare
-                        else -> Icons.Default.Handshake
-                    }
-                    Icon(
-                        displayIcon,
-                        contentDescription = null,
-                        tint = PrimaryGreen.copy(alpha = 0.35f),
-                        modifier = Modifier.size(54.dp)
-                    )
-                }
-
                 // Bottom badge: Condition
                 Surface(
-                    color = Color.Black.copy(alpha = 0.65f),
+                    color = Color.Black.copy(alpha = 0.7f),
                     shape = RoundedCornerShape(6.dp),
-                    modifier = Modifier.align(Alignment.BottomStart)
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(10.dp)
                 ) {
                     Text(
                         text = item.condition,

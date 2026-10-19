@@ -223,6 +223,81 @@ fun ProfileScreen(
             }
         }
 
+        // GPS Location Status Card
+        val userGps by viewModel.userGpsLocation.collectAsState()
+        val isLocating by viewModel.isLocating.collectAsState()
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val locationPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+            contract = androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+        ) { permissions ->
+            val granted = permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                    permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true
+            if (granted) {
+                viewModel.requestGpsLocation(context)
+            }
+        }
+
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(16.dp),
+            elevation = CardDefaults.cardElevation(1.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            if (userGps?.isRealGpsFix == true) Icons.Default.GpsFixed else Icons.Default.GpsNotFixed,
+                            contentDescription = null,
+                            tint = if (userGps?.isRealGpsFix == true) PrimaryGreen else MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text("Device GPS Telemetry", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text(
+                                text = if (userGps?.isRealGpsFix == true) {
+                                    "Lat: ${String.format(java.util.Locale.US, "%.4f", userGps!!.latitude)}, Lng: ${String.format(java.util.Locale.US, "%.4f", userGps!!.longitude)} (±${userGps!!.accuracyMeters.toInt()}m)"
+                                } else {
+                                    "GPS Idle • Tap to acquire live coordinates"
+                                },
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Button(
+                        onClick = {
+                            locationPermissionLauncher.launch(
+                                arrayOf(
+                                    android.Manifest.permission.ACCESS_FINE_LOCATION,
+                                    android.Manifest.permission.ACCESS_COARSE_LOCATION
+                                )
+                            )
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.testTag("profile_acquire_gps_btn")
+                    ) {
+                        if (isLocating) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(14.dp),
+                                strokeWidth = 2.dp,
+                                color = Color.White
+                            )
+                        } else {
+                            Text("Acquire GPS", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
         // Offline Simulator Toggle Card (Edge State Support)
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),

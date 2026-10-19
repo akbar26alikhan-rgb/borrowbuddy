@@ -18,7 +18,11 @@ data class Lender(
     val badges: List<String>,
     val memberSince: String = "2024",
     val responseTime: String = "< 15 mins",
-    val neighborhood: String = "Maplewood Heights"
+    val neighborhood: String = "Maplewood Heights",
+    val latitude: Double = 37.7749,
+    val longitude: Double = -122.4194,
+    val itemsCount: Int = 2,
+    val bio: String = "Friendly neighbor happy to lend gear and reduce waste!"
 )
 
 data class BorrowItem(
@@ -37,11 +41,22 @@ data class BorrowItem(
     val estimatedValue: String = "$120",
     val maxDays: Int = 3,
     val preferredTimes: String = "Evenings (after 5 PM) or weekends",
-    val isAvailable: Boolean = true
+    val isAvailable: Boolean = true,
+    val latitude: Double = 37.7749,
+    val longitude: Double = -122.4194
 ) {
     val distanceDisplay: String
-        get() = "${distanceKm} km away"
+        get() = "${String.format(java.util.Locale.US, "%.1f", distanceKm)} km away"
 }
+
+data class UserGpsLocation(
+    val latitude: Double,
+    val longitude: Double,
+    val accuracyMeters: Float = 8f,
+    val neighborhoodName: String = "Current Location",
+    val isRealGpsFix: Boolean = false,
+    val timestamp: Long = System.currentTimeMillis()
+)
 
 enum class LoanStatus(val label: String) {
     PENDING("Pending Approval"),
@@ -89,5 +104,7 @@ data class UserProfile(
     val itemsLentCount: Int,
     val itemsBorrowedCount: Int,
     val memberSince: String,
-    val isIdVerified: Boolean = true
+    val isIdVerified: Boolean = true,
+    val latitude: Double = 37.7749,
+    val longitude: Double = -122.4194
 )

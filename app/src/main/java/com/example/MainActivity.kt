@@ -59,11 +59,17 @@ fun BorrowBuddyApp(viewModel: BorrowViewModel) {
         }
     }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(Unit) {
+        viewModel.initGps(context)
+    }
+
     // Handle back button for sub-screens
     BackHandler(
         enabled = currentScreen is ScreenDestination.ItemDetail ||
                 currentScreen is ScreenDestination.ChatThread ||
-                currentScreen is ScreenDestination.AddListing
+                currentScreen is ScreenDestination.AddListing ||
+                currentScreen is ScreenDestination.NearbyProviders
     ) {
         viewModel.onBack()
     }
@@ -184,7 +190,23 @@ fun BorrowBuddyApp(viewModel: BorrowViewModel) {
                     HomeScreen(
                         viewModel = viewModel,
                         onItemClick = { item -> viewModel.navigateTo(ScreenDestination.ItemDetail(item.id)) },
-                        onOpenAddListing = { viewModel.navigateTo(ScreenDestination.AddListing) }
+                        onOpenAddListing = { viewModel.navigateTo(ScreenDestination.AddListing) },
+                        onOpenProviders = { viewModel.navigateTo(ScreenDestination.NearbyProviders) }
+                    )
+                }
+
+                is ScreenDestination.NearbyProviders -> {
+                    NearbyProvidersScreen(
+                        viewModel = viewModel,
+                        onBack = { viewModel.navigateTo(ScreenDestination.Explore) },
+                        onSelectProvider = { provider ->
+                            // Filter items by this provider
+                            viewModel.setQuery(provider.name)
+                            viewModel.navigateTo(ScreenDestination.Explore)
+                        },
+                        onSelectItem = { item ->
+                            viewModel.navigateTo(ScreenDestination.ItemDetail(item.id))
+                        }
                     )
                 }
 
@@ -244,6 +266,14 @@ fun BorrowBuddyApp(viewModel: BorrowViewModel) {
 
                 is ScreenDestination.Profile -> {
                     ProfileScreen(viewModel = viewModel)
+                }
+
+                is ScreenDestination.ProviderDetail -> {
+                    val targetProvider = viewModel.repository.providers.value.firstOrNull { it.id == dest.providerId }
+                    if (targetProvider != null) {
+                        viewModel.setQuery(targetProvider.name)
+                    }
+                    viewModel.navigateTo(ScreenDestination.Explore)
                 }
             }
         }

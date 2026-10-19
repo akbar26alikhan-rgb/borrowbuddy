@@ -1,8 +1,10 @@
 package com.example.ui
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.BorrowRepository
+import com.example.location.GpsLocationManager
 import com.example.model.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -12,7 +14,8 @@ data class UiFilterState(
     val category: ItemCategory = ItemCategory.ALL,
     val maxDistanceKm: Double = 5.0,
     val depositOnly: Boolean? = null,
-    val sortBy: String = "Distance"
+    val sortBy: String = "Distance",
+    val showProvidersOnly: Boolean = false
 )
 
 sealed class ScreenDestination {
@@ -20,7 +23,9 @@ sealed class ScreenDestination {
     object Loans : ScreenDestination()
     object Messages : ScreenDestination()
     object Profile : ScreenDestination()
+    object NearbyProviders : ScreenDestination()
     data class ItemDetail(val itemId: String) : ScreenDestination()
+    data class ProviderDetail(val providerId: String) : ScreenDestination()
     data class ChatThread(val loanId: String) : ScreenDestination()
     object AddListing : ScreenDestination()
 }
@@ -28,6 +33,8 @@ sealed class ScreenDestination {
 class BorrowViewModel(
     val repository: BorrowRepository = BorrowRepository()
 ) : ViewModel() {
+
+    private var gpsManager: GpsLocationManager? = null
 
     private val _currentScreen = MutableStateFlow<ScreenDestination>(ScreenDestination.Explore)
     val currentScreen: StateFlow<ScreenDestination> = _currentScreen.asStateFlow()
@@ -50,7 +57,11 @@ class BorrowViewModel(
     private val _userMessage = MutableStateFlow<String?>(null)
     val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
 
+    private val _isLocating = MutableStateFlow(false)
+    val isLocating: StateFlow<Boolean> = _isLocating.asStateFlow()
+
     val userProfile = repository.userProfile
+    val userGpsLocation = repository.userGpsLocation
     val isOffline = repository.isOffline
     val allLoans = repository.loans
 
@@ -67,6 +78,31 @@ class BorrowViewModel(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val nearbyProviders: StateFlow<List<Pair<Lender, Double>>> = combine(
+        repository.items,
+        _filterState
+    ) { _, filter ->
+        repository.getNearbyProviders(filter.maxDistanceKm)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun initGps(context: Context) {
+        if (gpsManager == null) {
+            gpsManager = GpsLocationManager(context.applicationContext)
+        }
+    }
+
+    fun requestGpsLocation(context: Context) {
+        initGps(context)
+        _isLocating.value = true
+        gpsManager?.requestGpsLocation { gpsLoc ->
+            _isLocating.value = false
+            repository.updateUserGpsLocation(gpsLoc)
+            _userMessage.value = "GPS Acquired: ${gpsLoc.neighborhoodName} (±${gpsLoc.accuracyMeters.toInt()}m)"
+        } ?: run {
+            _isLocating.value = false
+        }
+    }
+
     fun navigateTo(destination: ScreenDestination) {
         _currentScreen.value = destination
     }
@@ -75,7 +111,9 @@ class BorrowViewModel(
         val current = _currentScreen.value
         if (current is ScreenDestination.ItemDetail ||
             current is ScreenDestination.ChatThread ||
-            current is ScreenDestination.AddListing
+            current is ScreenDestination.AddListing ||
+            current is ScreenDestination.NearbyProviders ||
+            current is ScreenDestination.ProviderDetail
         ) {
             _currentScreen.value = ScreenDestination.Explore
         }
@@ -99,6 +137,10 @@ class BorrowViewModel(
 
     fun setSortBy(sortBy: String) {
         _filterState.value = _filterState.value.copy(sortBy = sortBy)
+    }
+
+    fun setShowProvidersOnly(showOnly: Boolean) {
+        _filterState.value = _filterState.value.copy(showProvidersOnly = showOnly)
     }
 
     fun openFilterSheet() {
@@ -143,7 +185,7 @@ class BorrowViewModel(
         returnDateTime: String,
         note: String
     ) {
-        val loan = repository.requestBorrow(item, pickupDateTime, returnDateTime, note)
+        repository.requestBorrow(item, pickupDateTime, returnDateTime, note)
         closeRequestSheet()
         _userMessage.value = "Borrow request sent to ${item.owner.name}!"
         _currentScreen.value = ScreenDestination.Loans

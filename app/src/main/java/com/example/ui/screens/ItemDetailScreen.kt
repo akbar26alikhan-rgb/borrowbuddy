@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -140,83 +141,120 @@ fun ItemDetailScreen(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Visual Banner Box
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(
-                        when (item.category) {
-                            ItemCategory.TOOLS -> Color(0xFFE8F2EC)
-                            ItemCategory.OUTDOOR -> Color(0xFFFBF1E6)
-                            ItemCategory.KITCHEN -> Color(0xFFF6ECEC)
-                            ItemCategory.LAWN -> Color(0xFFE8F5E9)
-                            else -> Color(0xFFECEEF6)
-                        }
+            // Visual Banner Box with Multi-angle Interactive Product Artwork
+            var selectedViewMode by remember { mutableStateOf(0) }
+
+            Column {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(230.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                ) {
+                    com.example.ui.components.ProductArtwork(
+                        item = item,
+                        viewMode = selectedViewMode,
+                        modifier = Modifier.fillMaxSize()
                     )
-                    .padding(16.dp)
-            ) {
+
+                    // Top badges
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Surface(
+                            color = Color.Black.copy(alpha = 0.65f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                CategoryIcon(item.category, modifier = Modifier.size(15.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = item.category.displayName,
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        DistanceChip(distance = item.distanceDisplay)
+                    }
+
+                    // Bottom info badge
+                    Surface(
+                        color = Color.Black.copy(alpha = 0.7f),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(14.dp)
+                    ) {
+                        Text(
+                            text = "Condition: ${item.condition} • Value ~ ${item.estimatedValue}",
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Multi-Angle Photo / View Thumbnails
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Surface(
-                        color = Color.White.copy(alpha = 0.9f),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                    val views = listOf(
+                        0 to "Studio Hero",
+                        1 to "Accessories / Kit",
+                        2 to "Storage Case"
+                    )
+                    views.forEach { (mode, label) ->
+                        val isSelected = selectedViewMode == mode
+                        Surface(
+                            color = if (isSelected) PrimaryContainerGreen else MaterialTheme.colorScheme.surface,
+                            shape = RoundedCornerShape(10.dp),
+                            border = if (isSelected) androidx.compose.foundation.BorderStroke(1.5.dp, PrimaryGreen) else null,
+                            shadowElevation = if (isSelected) 2.dp else 0.dp,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable { selectedViewMode = mode }
+                                .padding(vertical = 6.dp)
                         ) {
-                            CategoryIcon(item.category, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = item.category.displayName,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Row(
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    when (mode) {
+                                        1 -> Icons.Default.Extension
+                                        2 -> Icons.Default.Inventory2
+                                        else -> Icons.Default.CameraAlt
+                                    },
+                                    contentDescription = null,
+                                    tint = if (isSelected) PrimaryGreen else MaterialTheme.colorScheme.outline,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = label,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSelected) OnPrimaryContainerGreen else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
-
-                    DistanceChip(distance = item.distanceDisplay)
-                }
-
-                // Centered graphic icon
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    val displayIcon = when (item.category) {
-                        ItemCategory.TOOLS -> Icons.Default.Hardware
-                        ItemCategory.OUTDOOR -> Icons.Default.Cabin
-                        ItemCategory.KITCHEN -> Icons.Default.SoupKitchen
-                        ItemCategory.LAWN -> Icons.Default.Yard
-                        ItemCategory.BABY -> Icons.Default.ChildCare
-                        else -> Icons.Default.Handshake
-                    }
-                    Icon(
-                        displayIcon,
-                        contentDescription = null,
-                        tint = PrimaryGreen.copy(alpha = 0.4f),
-                        modifier = Modifier.size(90.dp)
-                    )
-                }
-
-                // Bottom badge
-                Surface(
-                    color = Color.Black.copy(alpha = 0.7f),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.align(Alignment.BottomStart)
-                ) {
-                    Text(
-                        text = "Condition: ${item.condition} • Value ~ ${item.estimatedValue}",
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
                 }
             }
 

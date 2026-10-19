@@ -1,11 +1,16 @@
 package com.example.data
 
+import com.example.location.GpsLocationManager
 import com.example.model.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.Locale
 
 class BorrowRepository {
+
+    private val defaultUserLat = 37.7749
+    private val defaultUserLng = -122.4194
 
     private val _userProfile = MutableStateFlow(
         UserProfile(
@@ -15,13 +20,21 @@ class BorrowRepository {
             verifications = listOf("ID Verified", "Phone Verified", "Neighbor Vouched", "Community Host"),
             itemsLentCount = 14,
             itemsBorrowedCount = 8,
-            memberSince = "March 2024"
+            memberSince = "March 2024",
+            latitude = defaultUserLat,
+            longitude = defaultUserLng
         )
     )
     val userProfile: StateFlow<UserProfile> = _userProfile.asStateFlow()
 
+    private val _userGpsLocation = MutableStateFlow<UserGpsLocation?>(null)
+    val userGpsLocation: StateFlow<UserGpsLocation?> = _userGpsLocation.asStateFlow()
+
     private val _items = MutableStateFlow<List<BorrowItem>>(emptyList())
     val items: StateFlow<List<BorrowItem>> = _items.asStateFlow()
+
+    private val _providers = MutableStateFlow<List<Lender>>(emptyList())
+    val providers: StateFlow<List<Lender>> = _providers.asStateFlow()
 
     private val _loans = MutableStateFlow<List<LoanExchange>>(emptyList())
     val loans: StateFlow<List<LoanExchange>> = _loans.asStateFlow()
@@ -46,7 +59,11 @@ class BorrowRepository {
             reviewsCount = 28,
             badges = listOf("ID Verified", "Super Lender", "Top Rated"),
             responseTime = "< 10 mins",
-            neighborhood = "Maplewood North"
+            neighborhood = "Maplewood North",
+            latitude = 37.7765,
+            longitude = -122.4172,
+            itemsCount = 3,
+            bio = "Carpenter & DIY enthusiast. Love sharing good tools with neighborhood makers."
         )
         val lenderElena = Lender(
             id = "u2",
@@ -55,7 +72,11 @@ class BorrowRepository {
             reviewsCount = 19,
             badges = listOf("ID Verified", "Neighbor Favorite"),
             responseTime = "< 30 mins",
-            neighborhood = "Oak Ridge Quadrant"
+            neighborhood = "Oak Ridge Quadrant",
+            latitude = 37.7818,
+            longitude = -122.4105,
+            itemsCount = 4,
+            bio = "Outdoor lover & baker. Keeping camping gear and kitchen equipment active."
         )
         val lenderDavid = Lender(
             id = "u3",
@@ -64,7 +85,11 @@ class BorrowRepository {
             reviewsCount = 14,
             badges = listOf("ID Verified", "Punctual Host"),
             responseTime = "< 15 mins",
-            neighborhood = "Westwood Cross"
+            neighborhood = "Westwood Cross",
+            latitude = 37.7712,
+            longitude = -122.4238,
+            itemsCount = 2,
+            bio = "Home chef and avid gardener. Always happy to lend specialized kitchen gadgets."
         )
         val lenderSofia = Lender(
             id = "u4",
@@ -73,16 +98,22 @@ class BorrowRepository {
             reviewsCount = 31,
             badges = listOf("ID Verified", "Super Lender"),
             responseTime = "< 5 mins",
-            neighborhood = "Highland Green"
+            neighborhood = "Highland Green",
+            latitude = 37.7855,
+            longitude = -122.4270,
+            itemsCount = 5,
+            bio = "Weekend road-tripper. Roof boxes, ladders, and party gear ready to lend."
         )
+
+        _providers.value = listOf(lenderMarcus, lenderElena, lenderDavid, lenderSofia)
 
         val seedItems = listOf(
             BorrowItem(
                 id = "bb-101",
                 title = "DeWalt 20V Cordless Drill + 30-pc Bit Set",
                 category = ItemCategory.TOOLS,
-                distanceKm = 0.4,
-                neighborhood = "Maplewood North",
+                distanceKm = GpsLocationManager.calculateDistanceKm(defaultUserLat, defaultUserLng, lenderMarcus.latitude, lenderMarcus.longitude),
+                neighborhood = lenderMarcus.neighborhood,
                 crossStreets = "Near Lincoln Elementary & 3rd",
                 owner = lenderMarcus,
                 description = "High torque brushless drill with 2 lithium batteries, high-speed charger, and drill/driver bits in a rugged hard case. Ideal for hanging art, assembling furniture, and light carpentry.",
@@ -96,14 +127,16 @@ class BorrowRepository {
                 condition = "Like New",
                 estimatedValue = "$180",
                 maxDays = 3,
-                preferredTimes = "Flexible; porch pickup box available 8 AM - 9 PM"
+                preferredTimes = "Flexible; porch pickup box available 8 AM - 9 PM",
+                latitude = lenderMarcus.latitude,
+                longitude = lenderMarcus.longitude
             ),
             BorrowItem(
                 id = "bb-102",
                 title = "Coleman 4-Person Sundome Waterproof Camping Tent",
                 category = ItemCategory.OUTDOOR,
-                distanceKm = 1.2,
-                neighborhood = "Oak Ridge Quadrant",
+                distanceKm = GpsLocationManager.calculateDistanceKm(defaultUserLat, defaultUserLng, lenderElena.latitude, lenderElena.longitude),
+                neighborhood = lenderElena.neighborhood,
                 crossStreets = "Near Highland Park West",
                 owner = lenderElena,
                 description = "Quick 10-minute setup dome tent with WeatherTec system, rainfly, ground tarp, and all 8 stakes. Fits a queen airbed comfortably.",
@@ -117,14 +150,16 @@ class BorrowRepository {
                 condition = "Excellent condition",
                 estimatedValue = "$110",
                 maxDays = 5,
-                preferredTimes = "Weekdays after 5 PM, weekends anytime"
+                preferredTimes = "Weekdays after 5 PM, weekends anytime",
+                latitude = lenderElena.latitude,
+                longitude = lenderElena.longitude
             ),
             BorrowItem(
                 id = "bb-103",
                 title = "Nordic Ware Cast Aluminum Bundt Cake Pan",
                 category = ItemCategory.KITCHEN,
-                distanceKm = 0.7,
-                neighborhood = "Westwood Cross",
+                distanceKm = GpsLocationManager.calculateDistanceKm(defaultUserLat, defaultUserLng, lenderDavid.latitude, lenderDavid.longitude),
+                neighborhood = lenderDavid.neighborhood,
                 crossStreets = "4th & Elm Crossing",
                 owner = lenderDavid,
                 description = "Heavy-cast aluminum 10-cup elegant fluted Bundt pan with premium non-stick coating. Bakes sharp, gorgeous decorative cakes.",
@@ -138,14 +173,16 @@ class BorrowRepository {
                 condition = "Pristine",
                 estimatedValue = "$45",
                 maxDays = 2,
-                preferredTimes = "Morning 9-11 AM or Evening 6-8 PM"
+                preferredTimes = "Morning 9-11 AM or Evening 6-8 PM",
+                latitude = lenderDavid.latitude,
+                longitude = lenderDavid.longitude
             ),
             BorrowItem(
                 id = "bb-104",
                 title = "Bosch 1600 PSI Electric Pressure Washer",
                 category = ItemCategory.LAWN,
-                distanceKm = 0.9,
-                neighborhood = "Maplewood North",
+                distanceKm = GpsLocationManager.calculateDistanceKm(defaultUserLat, defaultUserLng, lenderMarcus.latitude, lenderMarcus.longitude),
+                neighborhood = lenderMarcus.neighborhood,
                 crossStreets = "Near 6th Ave & Pine",
                 owner = lenderMarcus,
                 description = "Compact lightweight electric pressure washer with variable fan spray nozzle and 20ft hose. Fantastic for driveways, siding, and patio furniture.",
@@ -159,14 +196,16 @@ class BorrowRepository {
                 condition = "Great working order",
                 estimatedValue = "$160",
                 maxDays = 2,
-                preferredTimes = "Weekends preferred"
+                preferredTimes = "Weekends preferred",
+                latitude = lenderMarcus.latitude,
+                longitude = lenderMarcus.longitude
             ),
             BorrowItem(
                 id = "bb-105",
                 title = "Little Giant 17ft Multi-Position Folding Ladder",
                 category = ItemCategory.TOOLS,
-                distanceKm = 1.8,
-                neighborhood = "Highland Green",
+                distanceKm = GpsLocationManager.calculateDistanceKm(defaultUserLat, defaultUserLng, lenderSofia.latitude, lenderSofia.longitude),
+                neighborhood = lenderSofia.neighborhood,
                 crossStreets = "Near Sycamore Circle",
                 owner = lenderSofia,
                 description = "Heavy duty aluminum ladder that converts to A-frame, extension ladder, 90-degree stair ladder, and scaffold trestle. Rated 300 lbs.",
@@ -180,14 +219,16 @@ class BorrowRepository {
                 condition = "Rugged & Reliable",
                 estimatedValue = "$240",
                 maxDays = 3,
-                preferredTimes = "Evenings after 6 PM"
+                preferredTimes = "Evenings after 6 PM",
+                latitude = lenderSofia.latitude,
+                longitude = lenderSofia.longitude
             ),
             BorrowItem(
                 id = "bb-106",
                 title = "Cuisinart 2-Quart Automatic Ice Cream Maker",
                 category = ItemCategory.KITCHEN,
-                distanceKm = 1.5,
-                neighborhood = "Oak Ridge Quadrant",
+                distanceKm = GpsLocationManager.calculateDistanceKm(defaultUserLat, defaultUserLng, lenderElena.latitude, lenderElena.longitude),
+                neighborhood = lenderElena.neighborhood,
                 crossStreets = "Near Maple Library",
                 owner = lenderElena,
                 description = "Fully automatic frozen yogurt, sorbet, and ice cream maker. Includes double-insulated freezer bowl and recipe book.",
@@ -201,14 +242,16 @@ class BorrowRepository {
                 condition = "Excellent",
                 estimatedValue = "$70",
                 maxDays = 4,
-                preferredTimes = "Flexible pickup"
+                preferredTimes = "Flexible pickup",
+                latitude = lenderElena.latitude,
+                longitude = lenderElena.longitude
             ),
             BorrowItem(
                 id = "bb-107",
                 title = "Yakima SkyBox 16 Carbonite Roof Cargo Box",
                 category = ItemCategory.OUTDOOR,
-                distanceKm = 2.4,
-                neighborhood = "Highland Green",
+                distanceKm = GpsLocationManager.calculateDistanceKm(defaultUserLat, defaultUserLng, lenderSofia.latitude, lenderSofia.longitude),
+                neighborhood = lenderSofia.neighborhood,
                 crossStreets = "Near Cedar & 8th",
                 owner = lenderSofia,
                 description = "Aerodynamic roof carrier box with quick-dial mounting hardware and SKS lock system. Includes 2 keys. Fits crossbars easily.",
@@ -222,16 +265,18 @@ class BorrowRepository {
                 condition = "Great condition",
                 estimatedValue = "$550",
                 maxDays = 7,
-                preferredTimes = "Saturday mornings 9-11 AM"
+                preferredTimes = "Saturday mornings 9-11 AM",
+                latitude = lenderSofia.latitude,
+                longitude = lenderSofia.longitude
             )
         )
         _items.value = seedItems
 
-        // Initial loans covering key states
+        // Initial loans
         val seedLoans = listOf(
             LoanExchange(
                 id = "loan-01",
-                item = seedItems[0], // DeWalt Drill
+                item = seedItems[0],
                 borrowerName = "Alex Morgan",
                 lenderName = "Marcus K.",
                 pickupDateTime = "Tomorrow, 10:00 AM",
@@ -246,7 +291,7 @@ class BorrowRepository {
             ),
             LoanExchange(
                 id = "loan-02",
-                item = seedItems[1], // Tent
+                item = seedItems[1],
                 borrowerName = "Alex Morgan",
                 lenderName = "Elena R.",
                 pickupDateTime = "Friday, 4:00 PM",
@@ -259,7 +304,7 @@ class BorrowRepository {
             ),
             LoanExchange(
                 id = "loan-03",
-                item = seedItems[2], // Bundt Pan
+                item = seedItems[2],
                 borrowerName = "Sarah Jenkins",
                 lenderName = "Alex Morgan",
                 pickupDateTime = "Yesterday, 2:00 PM",
@@ -270,11 +315,11 @@ class BorrowRepository {
                 pickupInstructions = "Handed over safely yesterday afternoon.",
                 agreedToTerms = true,
                 dueInText = "Due in 4 hours",
-                isBorrowerPerspective = false // Lender perspective!
+                isBorrowerPerspective = false
             ),
             LoanExchange(
                 id = "loan-04",
-                item = seedItems[3], // Pressure Washer
+                item = seedItems[3],
                 borrowerName = "Alex Morgan",
                 lenderName = "Marcus K.",
                 pickupDateTime = "Last Weekend",
@@ -371,6 +416,39 @@ class BorrowRepository {
         _chatMessages.value = initialChats
     }
 
+    fun updateUserGpsLocation(gps: UserGpsLocation) {
+        _userGpsLocation.value = gps
+        val user = _userProfile.value
+        _userProfile.value = user.copy(
+            latitude = gps.latitude,
+            longitude = gps.longitude,
+            neighborhood = gps.neighborhoodName
+        )
+
+        // Dynamically recalculate geodesic distances for all items and providers
+        val updatedItems = _items.value.map { item ->
+            val dist = GpsLocationManager.calculateDistanceKm(
+                gps.latitude,
+                gps.longitude,
+                item.latitude,
+                item.longitude
+            )
+            item.copy(distanceKm = dist)
+        }
+        _items.value = updatedItems
+    }
+
+    fun getNearbyProviders(maxDistanceKm: Double): List<Pair<Lender, Double>> {
+        val userLat = _userGpsLocation.value?.latitude ?: _userProfile.value.latitude
+        val userLng = _userGpsLocation.value?.longitude ?: _userProfile.value.longitude
+
+        return _providers.value.map { provider ->
+            val dist = GpsLocationManager.calculateDistanceKm(userLat, userLng, provider.latitude, provider.longitude)
+            provider to dist
+        }.filter { it.second <= maxDistanceKm }
+            .sortedBy { it.second }
+    }
+
     fun searchAndFilter(
         query: String,
         category: ItemCategory,
@@ -416,9 +494,9 @@ class BorrowRepository {
             id = "bb-${System.currentTimeMillis() % 10000}",
             title = title,
             category = category,
-            distanceKm = 0.1, // Local to the user
+            distanceKm = 0.1,
             neighborhood = user.neighborhood,
-            crossStreets = "Near Community Park (Within 500m)",
+            crossStreets = "Near ${user.neighborhood} Center",
             owner = Lender(
                 id = "current_user",
                 name = user.name,
@@ -426,14 +504,18 @@ class BorrowRepository {
                 reviewsCount = user.itemsLentCount,
                 badges = user.verifications,
                 responseTime = "< 5 mins",
-                neighborhood = user.neighborhood
+                neighborhood = user.neighborhood,
+                latitude = user.latitude,
+                longitude = user.longitude
             ),
             description = description,
             rules = if (rules.isEmpty()) listOf("Return clean and on time") else rules,
             depositRequired = depositRequired,
             depositAmount = depositAmount,
             condition = condition,
-            preferredTimes = preferredTimes
+            preferredTimes = preferredTimes,
+            latitude = user.latitude,
+            longitude = user.longitude
         )
         _items.value = listOf(newItem) + _items.value
         _userProfile.value = user.copy(itemsLentCount = user.itemsLentCount + 1)
@@ -461,7 +543,6 @@ class BorrowRepository {
         )
         _loans.value = listOf(newLoan) + _loans.value
 
-        // Seed initial message
         val msgs = listOf(
             ChatMessage(
                 id = "m-${System.currentTimeMillis()}",
